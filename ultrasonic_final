@@ -1,0 +1,180 @@
+#include <Servo.h>                           // Include servo library
+#define echoPinF 2
+#define echoPinL 3
+#define echoPinR 4
+#define trigPinF 5
+#define trigPinL 8
+#define trigPinR 9
+
+Servo servoLeft;                             // Declare left and right servos
+Servo servoRight;
+
+
+long durationF; // variable for the durationF of sound wave travel
+int distanceF; // variable for the distanceF measurement
+
+long durationL; // variable for the durationL of sound wave travel
+int distanceL; // variable for the distanceL measurement
+
+long durationR; // variable for the durationR of sound wave travel
+int distanceR; // variable for the distanceR measurement
+
+
+
+void setup() {
+  Serial.begin (9600);
+  pinMode(trigPinF, OUTPUT);
+  pinMode(echoPinF, INPUT);
+
+  pinMode(trigPinL, OUTPUT);
+  pinMode(echoPinL, INPUT);
+
+  pinMode(trigPinR, OUTPUT);
+  pinMode(echoPinR, INPUT);
+  
+  servoLeft.attach(13);                      // Attach left signal to pin 13
+  servoRight.attach(12);                     // Attach right signal to pin 12
+
+}
+void forward(int time)                       // Forward function
+{
+  servoLeft.writeMicroseconds(1560);         // Left wheel counterclockwise
+  servoRight.writeMicroseconds(1455);        // Right wheel clockwise
+  delay(time);                               // Maneuver for time ms
+}
+
+void turnLeft(int time)                      // Left turn function
+{
+  servoLeft.writeMicroseconds(1455);         // Left wheel clockwise
+  servoRight.writeMicroseconds(1455);        // Right wheel clockwise
+  delay(time);                               // Maneuver for time ms
+}
+
+void turnRight(int time)                     // Right turn function
+{
+  servoLeft.writeMicroseconds(1560);         // Left wheel counterclockwise
+  servoRight.writeMicroseconds(1560);        // Right wheel counterclockwise
+  delay(time);                               // Maneuver for time ms
+}
+
+void backward(int time)                      // Backward function
+{
+  servoLeft.writeMicroseconds(1455);         // Left wheel clockwise
+  servoRight.writeMicroseconds(1560);        // Right wheel counterclockwise
+  delay(time);                               // Maneuver for time ms
+}
+void stationary(int time){
+  delay(time);
+}
+
+//Testing------------------------------------------------------------------
+void not_moving(int time)                      // Stop function
+{
+  servoLeft.writeMicroseconds(1505);         // Left wheel clockwise
+  servoRight.writeMicroseconds(1505);        // Right wheel counterclockwise
+  delay(time);                               // Maneuver for time ms
+}
+void loop() {
+//Front Sensor
+
+  digitalWrite(trigPinF, LOW); 
+  delayMicroseconds(2);
+ 
+  digitalWrite(trigPinF, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPinF, LOW);
+  
+  durationF = pulseIn(echoPinF, HIGH);
+  distanceF = durationF * 0.034 / 2;
+
+
+//Left Sensor
+
+  digitalWrite(trigPinL, LOW); 
+  delayMicroseconds(2);
+ 
+  digitalWrite(trigPinL, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPinL, LOW);
+  
+  durationL = pulseIn(echoPinL, HIGH);
+  distanceL = durationL * 0.034 / 2;
+
+
+//Right Sensor
+
+  digitalWrite(trigPinR, LOW); 
+  delayMicroseconds(2);
+ 
+  digitalWrite(trigPinR, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPinR, LOW);
+  
+  durationR = pulseIn(echoPinR, HIGH);
+  distanceR = durationR * 0.034 / 2;
+
+
+//---------------------setting----------------------------
+
+//1. F + L sense wall --> Turn Right, else keep moving forward.
+
+//  Serial.print("DistanceF = ");
+//  Serial.print(distanceF);
+//  Serial.println(" cm");
+//  delay(500);
+//
+//  Serial.print("DistanceL = ");
+//  Serial.print(distanceL);
+//  Serial.println(" cm");
+//  delay(500);
+//
+//  Serial.print("DistanceR = ");
+//  Serial.print(distanceR);
+//  Serial.println(" cm");
+//  delay(500);
+  
+//  delay(5q 2 ,00);
+    
+  if ((distanceF < 5) && (distanceL < 5)){
+    backward(100);                          
+    turnRight(1300); 
+    stationary(100);     
+  }
+
+  else if ((distanceF > 5) && (distanceL < 3)){                           
+    turnRight(100);         
+  }
+
+  else if ((distanceF > 5) && (distanceR < 2)){
+    turnLeft(100); 
+  }  
+  
+
+
+//2. F + R sense wall --> Turn Left, else keep moving forward.
+
+  else if ((distanceF < 5) && (distanceR < 5)){
+    backward(100);                          
+    turnLeft(1300); 
+    stationary(100);     
+  }
+  
+
+
+//3. F + R + L sense wall --> Stop, else keep moving forward.
+  else if ((distanceF < 8) && (distanceR < 9) && (distanceL < 9)){   
+    stationary(200);
+    //send bluetooth comms
+  }
+  
+//  else if((distanceF < 8) && (distanceR > 9) && (distanceL > 9)){
+//    forward(20);
+//    turnLeft(900);
+//    stationary(100);
+//  }
+  else{
+    forward(20);
+  }
+}
+  
+//-------------------------------------------------
