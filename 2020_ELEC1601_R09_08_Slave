@@ -1,0 +1,282 @@
+#include <SoftwareSerial.h>   //Software Serial Port
+
+#include <Servo.h>                      // Include servo library
+
+#include <Servo.h>                           // Include servo library
+#define echoPinF 2
+#define echoPinL 3
+#define echoPinR 4
+#define trigPinF 5
+#define trigPinL 8
+#define trigPinR 9
+
+Servo servoLeft;                             // Declare left and right servos
+Servo servoRight;
+
+
+long durationF; // variable for the durationF of sound wave travel
+int distanceF; // variable for the distanceF measurement
+
+long durationL; // variable for the durationL of sound wave travel
+int distanceL; // variable for the distanceL measurement
+
+long durationR; // variable for the durationR of sound wave travel
+int distanceR; // variable for the distanceR measurement
+
+#define RxD 7
+#define TxD 6
+#define ConnStatus A1
+
+#define DEBUG_ENABLED  1
+
+// ##################################################################################
+// ### EDIT THE LINES BELOW TO MATCH YOUR SHIELD NUMBER AND CONNECTION PIN OPTION ###
+// ##################################################################################
+
+int shieldPairNumber = 8;
+
+// CAUTION: If ConnStatusSupported = true you MUST NOT use pin A1 otherwise "random" reboots will occur
+// CAUTION: If ConnStatusSupported = true you MUST set the PIO[1] switch to A1 (not NC)
+
+boolean ConnStatusSupported = true;   // Set to "true" when digital connection status is available on Arduino pin
+
+// #######################################################
+
+// The following two string variable are used to simplify adaptation of code to different shield pairs
+
+String slaveNameCmd = "\r\n+STNA=Slave";   // This is concatenated with shieldPairNumber later
+
+SoftwareSerial blueToothSerial(RxD,TxD);
+
+int MotorRight = 12;
+int MotorLeft = 13;
+int mode = 0;
+void setupBlueToothConnection()
+{
+    Serial.println("Setting up the local (slave) Bluetooth module.");
+
+    slaveNameCmd += shieldPairNumber;
+    slaveNameCmd += "\r\n";
+
+    blueToothSerial.print("\r\n+STWMOD=0\r\n");      // Set the Bluetooth to work in slave mode
+    blueToothSerial.print(slaveNameCmd);             // Set the Bluetooth name using slaveNameCmd
+    blueToothSerial.print("\r\n+STAUTO=0\r\n");      // Auto-connection should be forbidden here
+    blueToothSerial.print("\r\n+STOAUT=1\r\n");      // Permit paired device to connect me
+    
+    //  print() sets up a transmit/outgoing buffer for the string which is then transmitted via interrupts one character at a time.
+    //  This allows the program to keep running, with the transmitting happening in the background.
+    //  Serial.flush() does not empty this buffer, instead it pauses the program until all Serial.print()ing is done.
+    //  This is useful if there is critical timing mixed in with Serial.print()s.
+    //  To clear an "incoming" serial buffer, use while(Serial.available()){Serial.read();}
+
+    blueToothSerial.flush();
+    delay(2000);                                     // This delay is required
+
+    blueToothSerial.print("\r\n+INQ=1\r\n");         // Make the slave Bluetooth inquirable
+    
+    blueToothSerial.flush();
+    delay(2000);                                     // This delay is required
+    
+    Serial.println("The slave bluetooth is inquirable!");
+}
+
+
+
+void setup()
+{   
+  Serial.begin (9600);
+  pinMode(trigPinF, OUTPUT);
+  pinMode(echoPinF, INPUT);
+
+  pinMode(trigPinL, OUTPUT);
+  pinMode(echoPinL, INPUT);
+
+  pinMode(trigPinR, OUTPUT);
+  pinMode(echoPinR, INPUT);
+  
+  servoLeft.attach(13);                      // Attach left signal to pin 13
+  servoRight.attach(12);                     // Attach right signal to pin 12
+
+  Serial.begin(9600);
+  blueToothSerial.begin(38400);                    // Set Bluetooth module to default baud rate 38400
+
+    pinMode(RxD, INPUT);
+    pinMode(TxD, OUTPUT);
+    pinMode(ConnStatus, INPUT);
+
+    //  Check whether Master and Slave are already connected by polling the ConnStatus pin (A1 on SeeedStudio v1 shield)
+    //  This prevents running the full connection setup routine if not necessary.
+
+    if(ConnStatusSupported) {
+        Serial.println("Checking Slave-Master connection status.");
+    }
+
+    if(ConnStatusSupported && digitalRead(ConnStatus)==1)
+    {
+        Serial.println("Already connected to Master - remove USB cable if reboot of Master Bluetooth required.");
+    }
+    else
+    {
+        Serial.println("Not connected to Master.");
+        
+        setupBlueToothConnection();   // Set up the local (slave) Bluetooth module
+
+        delay(1000);                  // Wait one second and flush the serial buffers
+        Serial.flush();
+        blueToothSerial.flush();
+    }
+}
+void forward(int time)                       // Forward function
+{
+  servoLeft.writeMicroseconds(1560);         // Left wheel counterclockwise
+  servoRight.writeMicroseconds(1455);        // Right wheel clockwise
+  delay(time);                               // Maneuver for time ms
+}
+
+void turnLeft(int time)                      // Left turn function
+{
+  servoLeft.writeMicroseconds(1455);         // Left wheel clockwise
+  servoRight.writeMicroseconds(1455);        // Right wheel clockwise
+  delay(time);                               // Maneuver for time ms
+}
+
+void turnRight(int time)                     // Right turn function
+{
+  servoLeft.writeMicroseconds(1560);         // Left wheel counterclockwise
+  servoRight.writeMicroseconds(1560);        // Right wheel counterclockwise
+  delay(time);                               // Maneuver for time ms
+}
+
+void backward(int time)                      // Backward function
+{
+  servoLeft.writeMicroseconds(1455);         // Left wheel clockwise
+  servoRight.writeMicroseconds(1560);        // Right wheel counterclockwise
+  delay(time);                               // Maneuver for time ms
+}
+void stationary(int time){
+  delay(time);
+}
+void loop()
+{
+  digitalWrite(trigPinF, LOW); 
+  delayMicroseconds(2);
+ 
+  digitalWrite(trigPinF, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPinF, LOW);
+  
+  durationF = pulseIn(echoPinF, HIGH);
+  distanceF = durationF * 0.034 / 2;
+
+
+//Left Sensor
+
+  digitalWrite(trigPinL, LOW); 
+  delayMicroseconds(2);
+ 
+  digitalWrite(trigPinL, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPinL, LOW);
+  
+  durationL = pulseIn(echoPinL, HIGH);
+  distanceL = durationL * 0.034 / 2;
+
+
+//Right Sensor
+
+  digitalWrite(trigPinR, LOW); 
+  delayMicroseconds(2);
+ 
+  digitalWrite(trigPinR, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPinR, LOW);
+  
+  durationR = pulseIn(echoPinR, HIGH);
+  distanceR = durationR * 0.034 / 2;
+    bool detected =  false;
+    char recvChar;
+
+    //int irfront = irDetect(11, 12, 38000);
+
+    while (mode == 0) // driving
+    {
+        
+        if(blueToothSerial.available())   // Check if there's data sent from the remote Bluetooth shield
+        {
+            recvChar = blueToothSerial.read();
+            if (recvChar == 'r')
+            { 
+                // digitalWrite(MotorRight, HIGH);
+                // digitalWrite(MotorLeft, LOW);
+                turnRight(200);
+                stationary(100);
+                Serial.println("right");
+            }
+            else if(recvChar == 'l')
+            {
+                // digitalWrite(MotorLeft, HIGH);
+                // digitalWrite(MotorRight, LOW);
+                turnLeft(200);
+                stationary(100);
+                Serial.println("left");
+            }
+            else if(recvChar == 'f') // check the recvChar, if it's 'f'; move forward: 
+            {
+                // digitalWrite(MotorLeft, HIGH);
+                // digitalWrite(MotorRight, HIGH);
+                forward(200);
+                stationary(100);
+                Serial.println("forward");
+            }
+            else if (recvChar == 'm')
+            {
+              stationary(1000);
+              mode = 1;
+            }
+        }
+    }
+
+while(mode == 1){
+  
+   if ((distanceF < 5) && (distanceL < 5)){
+      backward(100);                          
+      turnRight(1300); 
+      stationary(100);     
+    }
+  
+    else if ((distanceF > 10) && (distanceL < 3)){                           
+      turnRight(150);         
+    }
+  
+    else if ((distanceF > 10) && (distanceR < 2)){
+      turnLeft(100); 
+    }  
+    
+  
+  
+  //2. F + R sense wall --> Turn Left, else keep moving forward.
+  
+    else if ((distanceF < 6) && (distanceR < 6)){
+      backward(100);                          
+      turnLeft(1300); 
+      stationary(100);     
+    }
+    
+  
+  
+  //3. F + R + L sense wall --> Stop, else keep moving forward.
+    else if ((distanceF < 8) && (distanceR < 9) && (distanceL < 9)){   
+      stationary(200);
+      blueToothSerial.print("object found');    
+      }
+    // the case where a turn either left or right can be made - theres only a wall in front of the robot
+    else if((distanceF < 8) && (distanceR > 9) && (distanceL > 9)){
+      backward(20);
+      turnLeft(900);
+      stationary(100);
+    }
+    else{
+      forward(20);
+    }
+}
+}
